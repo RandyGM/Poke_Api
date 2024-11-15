@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poke_Api</title>
+    <style>
+        /* Estilos básicos */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background-color: #f4f4f4; color: #333; }
+        header { display: flex; justify-content: space-between; background-color: #333; color: #f4f4f4; padding: 20px; text-align: center; }
+        .busqueda { display: flex; justify-content: space-between; align-items: center; }
+        .busqueda input { width: 312px; border: 1px solid #ccc; padding: 10px; border-radius: 15px; outline: none; font-size: 16px; }
+        .busqueda button { display: flex; align-items: center; justify-content: center; background-color: #fe5f5f; color: #f4f4f4; border: none; padding: 10px; border-radius: 50%; cursor: pointer; margin-left: 10px; transition: background-color 0.3s; }
+        .busqueda button:hover { background-color: #ff9595; }
+        .card-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; padding: 20px; }
+        .search-container { display: flex; justify-content: center; padding: 20px;}
+        .pokemon-info-card, .pokemon-search-card { background-color: #fff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); overflow: hidden; text-align: center; padding: 15px; transition: transform 0.3s; }
+        .pokemon-info-card img, .pokemon-search-card img { width: 100px; height: 100px; object-fit: cover; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Poke Api</h1>
+        <div class="busqueda">
+            <input type="text" id="pokemonInput" placeholder="Ingresar Nombre o ID">
+            <button onclick="SearchPokemon()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                </svg>
+            </button>
+        </div>
+        <div class="busqueda">
+            <input type="number" id="generationInput" placeholder="Número de Generación (1-8)" min="1" max="8">
+            <button onclick="listPokemonByGeneration()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+    
+    <div class="search-container" id="pokemonInfo"></div>
+    <div class="card-container" id="generationCards"></div>
+
+    <script>
+        async function SearchPokemon() {
+            const input = document.getElementById("pokemonInput").value.toLowerCase();
+            try {
+                const response = await fetch(`/api/pokemon/${input}`);
+                const pokemon = await response.json();
+
+                const infoDiv = document.getElementById("pokemonInfo");
+                if (pokemon && pokemon.name) {
+                    const hpStat = pokemon.stats.find(stat => stat.stat.name === 'hp');
+                    const attackStat = pokemon.stats.find(stat => stat.stat.name === 'attack');
+                    const defenseStat = pokemon.stats.find(stat => stat.stat.name === 'defense');
+                    const speedStat = pokemon.stats.find(stat => stat.stat.name === 'speed');
+                    const types = pokemon.types.map(type => type.type.name).join(', ');
+
+                    const speciesResponse = await fetch(pokemon.species.url);
+                    const speciesData = await speciesResponse.json();
+                    const generation = speciesData.generation.name;
+
+                    infoDiv.innerHTML = `
+                        <div class="pokemon-info-card">
+                            <img src="${pokemon.sprites.front_default}" alt="${pokemon.name}">
+                            <h3>${pokemon.name.toUpperCase()}</h3>
+                            <p>ID: ${pokemon.id}</p>
+                            <p>Altura: ${pokemon.height}</p>
+                            <p>Peso: ${pokemon.weight}</p> <br>
+                            <h4>Estadísticas:</h4>
+                            <p>HP: ${hpStat ? hpStat.base_stat : 'No disponible'}</p>
+                            <p>Ataque: ${attackStat.base_stat}</p>
+                            <p>Defensa: ${defenseStat.base_stat}</p>
+                            <p>Velocidad: ${speedStat.base_stat}</p> <br>
+                            <h4>Tipo:</h4>
+                            <p>${types}</p> <br>
+                            <p>Generación: ${generation}</p>
+                        </div>
+                    `;
+                } else {
+                    infoDiv.innerHTML = "<p>Pokémon no encontrado</p>";
+                }
+            } catch (error) {
+                document.getElementById("pokemonInfo").innerHTML = "<p>Error al obtener datos</p>";
+            }
+        }
+
+        async function listPokemonByGeneration() {
+        const generationInput = document.getElementById("generationInput").value;
+        try {
+            const response = await fetch(`/api/generation/${generationInput}`);
+            const generationData = await response.json();
+
+            const generationCardsDiv = document.getElementById("generationCards");
+            generationCardsDiv.innerHTML = '';
+
+            for (const species of generationData.pokemon_species) {
+                try {
+                    const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${species.name}`);
+                    
+                    if (!pokemonResponse.ok) {  // Si hay un error de red, lo omitimos y seguimos con el siguiente.
+                        console.warn(`Error al obtener datos de ${species.name}: ${pokemonResponse.statusText}`);
+                        continue;
+                    }
+
+                    const pokemon = await pokemonResponse.json();
+
+                    const hpStat = pokemon.stats.find(stat => stat.stat.name === 'hp');
+                    const attackStat = pokemon.stats.find(stat => stat.stat.name === 'attack');
+                    const defenseStat = pokemon.stats.find(stat => stat.stat.name === 'defense');
+                    const speedStat = pokemon.stats.find(stat => stat.stat.name === 'speed');
+                    const types = pokemon.types.map(type => type.type.name).join(', ');
+
+                    generationCardsDiv.innerHTML += `
+                        <div class="pokemon-info-card">
+                            <img src="${pokemon.sprites.front_default}" alt="${pokemon.name}">
+                            <h3>${pokemon.name.toUpperCase()}</h3>
+                            <p>ID: ${pokemon.id}</p>
+                            <p>Altura: ${pokemon.height}</p>
+                            <p>Peso: ${pokemon.weight}</p> <br>
+                            <h4>Estadísticas:</h4>
+                            <p>HP: ${hpStat ? hpStat.base_stat : 'No disponible'}</p>
+                            <p>Ataque: ${attackStat.base_stat}</p>
+                            <p>Defensa: ${defenseStat.base_stat}</p>
+                            <p>Velocidad: ${speedStat.base_stat}</p> <br>
+                            <h4>Tipo:</h4>
+                            <p>${types}</p>
+                        </div>
+                    `;
+                } catch (error) {
+                    console.error(`Error al obtener datos de ${species.name}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error("Error al obtener datos de generación:", error);
+            document.getElementById("generationCards").innerHTML = "<p>Error al obtener datos de la generación</p>";
+        }
+    }
+
+    </script>
+
+</body>
+</html>
